@@ -151,5 +151,6 @@ func (r *Advice[T]) Reconcile(ctx context.Context, resource T) (Result, error) {
 	result = AggregateResults(result, aroundResult)
 
 	// after phase
+	log.WithValues("result", result).WithValues("err", err).Info("Calling after")
 	return r.After(ctx, resource, result, err)
 }

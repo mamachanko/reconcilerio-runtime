@@ -295,6 +295,7 @@ func (r *ChildReconciler[T, CT, CLT]) Reconcile(ctx context.Context, resource T)
 
 	child, err := r.reconcile(ctx, resource)
 	if resource.GetDeletionTimestamp() != nil {
+		log.WithValues("err", err).Info("Reconciled child")
 		return Result{}, err
 	}
 	if err != nil {
@@ -308,18 +309,22 @@ func (r *ChildReconciler[T, CT, CLT]) Reconcile(ctx context.Context, resource T)
 			_ = c.APIReader.Get(ctx, types.NamespacedName{Namespace: resource.GetNamespace(), Name: apierr.Status().Details.Name}, conflicted)
 			if r.ourChild(resource, conflicted) {
 				// skip updating the reconciled resource's status, fail and try again
+				log.WithValues("err", err).Info("Reconciled child")
 				return Result{}, err
 			}
 			log.Info("unable to reconcile child, not owned", "child", namespaceName(conflicted), "ownerRefs", conflicted.GetOwnerReferences())
 			r.ReflectChildStatusOnParent(ctx, resource, child, err)
+			log.WithValues("err", err).Info("Reconciled child")
 			return Result{}, nil
 		case apierrs.IsInvalid(err):
 			r.ReflectChildStatusOnParent(ctx, resource, child, err)
+			log.WithValues("err", err).Info("Reconciled child")
 			return Result{}, nil
 		}
 		if !errors.Is(err, ErrQuiet) {
 			log.Error(err, "unable to reconcile child")
 		}
+		log.WithValues("err", err).Info("Reconciled child")
 		return Result{}, err
 	}
 	r.ReflectChildStatusOnParent(ctx, resource, child, nil)
