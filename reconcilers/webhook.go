@@ -118,6 +118,11 @@ func (r *AdmissionWebhookAdapter[T]) init() {
 
 func (r *AdmissionWebhookAdapter[T]) Build() *admission.Webhook {
 	r.init()
+
+	if err := r.Validate(validation.WithRecursive(context.Background())); err != nil {
+		panic(err)
+	}
+
 	return &admission.Webhook{
 		Handler: r,
 		WithContextFunc: func(ctx context.Context, req *http.Request) context.Context {

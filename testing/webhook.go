@@ -201,6 +201,13 @@ func (tc *AdmissionWebhookTestCase) Run(t *testing.T, scheme *runtime.Scheme, fa
 	c := expectConfig.Config()
 	r := factory(t, tc, c)
 
+	// ctx = validation.WithRecursive(ctx)
+	// if v, ok := r.(validation.Validator); ok {
+	// 	if err := v.Validate(ctx); err != nil {
+	// 		t.Fatalf("admission webhook adapter validation failed: %s", err)
+	// 	}
+	// }
+
 	// Run the Reconcile we're testing.
 	response := func() admission.Response {
 		if tc.ShouldPanic {
