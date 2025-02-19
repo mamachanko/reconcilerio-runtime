@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"reconciler.io/runtime/internal"
 	rtime "reconciler.io/runtime/time"
+	"reconciler.io/runtime/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crlog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -238,6 +239,24 @@ func (r *AdmissionWebhookAdapter[T]) reconcile(ctx context.Context, req admissio
 		data, _ := json.Marshal(patch)
 		_ = json.Unmarshal(data, &resp.Patches)
 		log.Info("mutating resource", "patch", resp.Patches)
+	}
+
+	return nil
+}
+
+func (r *AdmissionWebhookAdapter[T]) Validate(ctx context.Context) error {
+	r.init()
+
+	// validate Reconciler
+	if r.Reconciler == nil {
+		return fmt.Errorf("AdmissionWebhookAdapter %q must implement Reconciler", r.Name)
+	}
+	if validation.IsRecursive(ctx) {
+		if v, ok := r.Reconciler.(validation.Validator); ok {
+			if err := v.Validate(ctx); err != nil {
+				return fmt.Errorf("AdmissionWebhookAdapter %q must have a valid Reconciler: %w", r.Name, err)
+			}
+		}
 	}
 
 	return nil

@@ -40,6 +40,7 @@ import (
 	"reconciler.io/runtime/reconcilers"
 	rtesting "reconciler.io/runtime/testing"
 	"reconciler.io/runtime/tracker"
+	"reconciler.io/runtime/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -384,4 +385,66 @@ func TestAdmissionWebhookAdapter(t *testing.T) {
 			Config:     c,
 		}).Build()
 	})
+}
+
+func TestAdmissionWebhookAdapter_Validation(t *testing.T) {
+	tests := []struct {
+		name           string
+		resource       client.Object
+		reconciler     *reconcilers.AdmissionWebhookAdapter[*resources.TestResource]
+		validateNested bool
+		shouldErr      string
+	}{
+		{
+			name:       "empty",
+			resource:   &corev1.ConfigMap{},
+			reconciler: &reconcilers.AdmissionWebhookAdapter[*resources.TestResource]{},
+			shouldErr:  `AdmissionWebhookAdapter "TestResourceAdmissionWebhookAdapter" must implement Reconciler`,
+		},
+		{
+			name:     "valid",
+			resource: &corev1.ConfigMap{},
+			reconciler: &reconcilers.AdmissionWebhookAdapter[*resources.TestResource]{
+				Reconciler: &reconcilers.SyncReconciler[*resources.TestResource]{},
+			},
+		},
+		{
+			name:     "valid reconciler",
+			resource: &corev1.ConfigMap{},
+			reconciler: &reconcilers.AdmissionWebhookAdapter[*resources.TestResource]{
+				Reconciler: &reconcilers.SyncReconciler[*resources.TestResource]{
+					Sync: func(ctx context.Context, resource *resources.TestResource) error {
+						return nil
+					},
+				},
+			},
+			validateNested: true,
+		},
+		{
+			name:     "invalid reconciler",
+			resource: &corev1.ConfigMap{},
+			reconciler: &reconcilers.AdmissionWebhookAdapter[*resources.TestResource]{
+				Reconciler: &reconcilers.SyncReconciler[*resources.TestResource]{
+					// Sync: func(ctx context.Context, resource *resources.TestResource) error {
+					// 	return nil
+					// },
+				},
+			},
+			validateNested: true,
+			shouldErr:  `AdmissionWebhookAdapter "TestResourceAdmissionWebhookAdapter" must have a valid Reconciler: SyncReconciler "SyncReconciler" must implement Sync or SyncWithResult`,
+		},
+	}
+
+	for _, c := range tests {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := reconcilers.StashResourceType(context.TODO(), c.resource)
+			if c.validateNested {
+				ctx = validation.WithRecursive(ctx)
+			}
+			err := c.reconciler.Validate(ctx)
+			if (err != nil) != (c.shouldErr != "") || (c.shouldErr != "" && c.shouldErr != err.Error()) {
+				t.Errorf("validate() error = %q, shouldErr %q", err, c.shouldErr)
+			}
+		})
+	}
 }
